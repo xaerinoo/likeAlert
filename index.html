@@ -7,17 +7,20 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    width: 100%; height: 100%;
-    overflow: hidden;
+    width: 100%;
     font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
   }
-  #screen {
-    width: 100vw; height: 100vh;
-    position: relative;
-    overflow: hidden;
+  body { background: #060d20; }
+
+  /* 배경만 fixed */
+  .bg-fixed {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
     background: radial-gradient(ellipse at 60% 25%, #3a4a8a 0%, #1e2d6b 40%, #0d1a3e 75%, #060d20 100%);
   }
-  #screen::before {
+  .bg-fixed::before {
     content: '';
     position: absolute;
     top: -80px; left: -80px;
@@ -25,7 +28,7 @@
     background: radial-gradient(circle, rgba(80,100,190,0.45) 0%, transparent 70%);
     border-radius: 50%;
   }
-  #screen::after {
+  .bg-fixed::after {
     content: '';
     position: absolute;
     bottom: 10vh; right: -10vw;
@@ -33,8 +36,16 @@
     background: radial-gradient(circle, rgba(40,60,150,0.3) 0%, transparent 70%);
     border-radius: 50%;
   }
+
+  /* 콘텐츠는 일반 흐름 */
+  #screen {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: 100vh;
+  }
   .status-bar {
-    position: absolute;
+    position: fixed;
     top: env(safe-area-inset-top, 14px);
     left: 0; right: 0;
     padding: 8px 22px 0;
@@ -54,10 +65,9 @@
     gap: 6px;
   }
   .clock-area {
-    position: absolute;
-    top: 18vh;
-    left: 0; right: 0;
+    padding-top: 18vh;
     text-align: center;
+    position: relative;
     z-index: 5;
   }
   .clock-time {
@@ -75,10 +85,10 @@
     letter-spacing: 0.2px;
   }
   #notifArea {
-    position: absolute;
-    top: 42vh;
-    left: 12px; right: 12px;
+    position: relative;
     z-index: 6;
+    margin-top: 20px;
+    padding: 0 12px 80px;
     display: flex;
     flex-direction: column;
     gap: 9px;
@@ -141,7 +151,7 @@
   }
   .notif-thumb canvas { width: 100%; height: 100%; }
   .home-indicator {
-    position: absolute;
+    position: fixed;
     bottom: max(env(safe-area-inset-bottom, 8px), 8px);
     left: 50%; transform: translateX(-50%);
     width: 35vw; max-width: 130px; height: 5px;
@@ -152,6 +162,7 @@
 </style>
 </head>
 <body>
+<div class="bg-fixed"></div>
 <div id="screen">
   <div class="status-bar">
     <span class="status-time-small">1:34</span>
@@ -201,7 +212,6 @@ const thumbGrads = [
   ["#c0e0a0","#406020"],["#e0a0d0","#703060"],["#a0d0e8","#205878"]
 ];
 
-const MAX_VISIBLE = 5;
 const TOTAL_NOTIFS = 15;
 let notifCount = 0;
 let audioCtx = null;
@@ -234,12 +244,10 @@ async function playSound() {
     o.start(t + start); o.stop(t + start + dur + 0.05);
   }
 
-  // 띠링! 두 음절: 높은 단음 + 약간 낮은 울림
   tone(1567, 0,    0.12, 0.22, 'triangle');
   tone(2093, 0,    0.09, 0.12, 'sine');
   tone(1318, 0.10, 0.22, 0.18, 'triangle');
   tone(1047, 0.10, 0.30, 0.08, 'sine');
-  // 잔향
   tone(1318, 0.30, 0.18, 0.06, 'sine');
 }
 
@@ -256,7 +264,6 @@ function makeThumbCanvas(g) {
   return c;
 }
 
-// 첫 인터랙션으로 오디오 활성화 및 resume
 async function unlockAudio() {
   const ctx = getAudio();
   if (ctx && ctx.state === 'suspended') await ctx.resume();
@@ -264,10 +271,9 @@ async function unlockAudio() {
 document.addEventListener('touchstart', unlockAudio, { once: true });
 document.addEventListener('click', unlockAudio, { once: true });
 
-// 알림 스케줄: 빠르고 랜덤하게, 총 10개
 function scheduleNext() {
   if (notifCount >= TOTAL_NOTIFS) return;
-  const delay = 700 + Math.random() * 1300; // 0.7~2초 랜덤
+  const delay = 700 + Math.random() * 1300;
   setTimeout(() => { addNotif(); scheduleNext(); }, delay);
 }
 
@@ -278,12 +284,6 @@ function addNotif() {
   const grad = thumbGrads[Math.floor(Math.random() * thumbGrads.length)];
 
   playSound();
-
-  if (area.children.length >= MAX_VISIBLE) {
-    const old = area.lastElementChild;
-    old.classList.add('hiding');
-    setTimeout(() => old.remove(), 320);
-  }
 
   const card = document.createElement('div');
   card.className = 'notif-card';
@@ -315,7 +315,7 @@ function addNotif() {
   requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('visible')));
 }
 
-setTimeout(() => { addNotif(); scheduleNext(); }, 800);
+setTimeout(() => { addNotif(); scheduleNext(); }, 3000);
 </script>
 </body>
 </html>
